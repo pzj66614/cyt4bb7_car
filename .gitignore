@@ -1,0 +1,20 @@
+# 编译输出
+*.o
+*.elf
+*.hex
+*.map
+*.lst
+Objects/
+Listings/
+Debug/
+Release/
+build/
+
+
+.vscode/
+*.uvprojx
+*.uvoptx
+
+# 临时文件
+*.tmp
+*.log
