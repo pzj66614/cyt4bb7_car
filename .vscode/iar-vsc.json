@@ -11,6 +11,14 @@
       "selected": {
         "path": "${workspaceFolder}\\project\\iar\\project_config\\cyt4bb7_cm_7_0.ewp"
       }
+    },
+    "${workspaceFolder}\\project\\iar\\project_config\\cyt4bb7_cm_7_0.eww": {
+      "configs": {
+        "${workspaceFolder}\\project\\iar\\project_config\\cyt4bb7_cm_7_0.ewp": "Debug"
+      },
+      "selected": {
+        "path": "${workspaceFolder}\\project\\iar\\project_config\\cyt4bb7_cm_7_0.ewp"
+      }
     }
   },
   "workbench": {

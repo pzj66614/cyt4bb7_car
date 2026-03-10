@@ -2145,4 +2145,34 @@
             <name>$PROJ_DIR$\..\..\..\libraries\zf_driver\zf_driver_uart.h</name>
         </file>
     </group>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\control.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\control.h</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\imu_fusion.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\imu_fusion.h</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\MPU.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\MPU.h</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\servo.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\servo.h</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\small_drive_uart_control.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\small_drive_uart_control.h</name>
+    </file>
 </project>

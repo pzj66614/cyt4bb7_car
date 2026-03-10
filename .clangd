@@ -1,0 +1,37 @@
+CompileFlags:
+  Add:
+    - -std=c11
+    - -target=arm-none-eabi
+    - -Dtviibh4m
+    - -DCYT4BB7CEE
+    - -DCY_USE_PSVP=0
+    - -DCY_MCU_rev_b
+    - -DCPU_BOARD_REVB
+    - -DCY_CORE_CM7_0
+    - -D__ICACHE_PRESENT=1
+    - -D__DCACHE_PRESENT=1
+    - -D__ARM_ARCH_7EM__
+    - -D__ICCARM__
+    - -IC:/Program Files/IAR Systems/Embedded Workbench 9.2/arm/inc/c
+    - -IC:/Program Files/IAR Systems/Embedded Workbench 9.2/arm/inc
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/common/hdr
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/common/hdr/cmsis/include
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/common/src/drivers
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/common/src/mw
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/hdr
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/hdr/ip
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/hdr/mcureg
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/src
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/src/interrupts
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/src/mw
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/src/drivers
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/tviibh4m/src/system
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/sdk/common/hdr/cmsis/dsp
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/zf_common
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/zf_driver
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/zf_device
+    - -ID:/CYT4BB7/Seekfree_CYT4BB_Opensource_Library/libraries/zf_components
+  Remove: [-m*, -f*]
+
+Index:
+  Background: Build
