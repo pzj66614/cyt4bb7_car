@@ -8,33 +8,33 @@
 #include <math.h>
 
 // ----- 直立环(角度环)PID参数 -----
-// 经过调整，直立环现在输出期望轮子转速
-float Upright_Kp = 0.1f; // 比例常数需重新整定以适应速度输出
-float Upright_Kd =0.05f;  // 微分常数需重新整定以适应速度输出
+// 经过调整，直立环现在输出期望轮子转速 (rad/s)
+float Upright_Kp = -1.50f; // 比例常数需重新整定以适应速度输出(100rad/s量级)
+float Upright_Kd = 0.01f;  // 微分常数需重新整定以适应速度输出(100rad/s量级)
 float Target_Angle = -1.2f; // 机械零度(需根据实际重力校准后调整)
 
 // ----- 速度环PID参数 -----
 // 速度环为PI控制，输出用于微调期望角度（即产生俯仰角以加减速）
-float Velocity_Kp = 0.08f;   // 比例常数需重新整定
-float Velocity_Ki = 0.001f;  // 积分常数需重新整定
+float Velocity_Kp = 0.0f;   // 比例常数需重新整定
+float Velocity_Ki = 0.00f;  // 积分常数需重新整定
 float Target_Speed = 0.0f; // 期望速度通常为0(静止不动)
 
 // ----- 转向环(Yaw角)PD参数 -----
 // 转向环用于控制小车走直线或实现指定角度转向
-float Turn_Kp = 5.0f;      // 转向比例常数，根据响应速度整定
-float Turn_Kd = 0.5f;      // 转向微分常数，用于抑制振荡
+float Turn_Kp =0.03f;      // 转向比例常数，根据响应速度整定
+float Turn_Kd = 0.005f;      // 转向微分常数，用于抑制振荡
 float Target_Yaw_Angle = 0.0f; // 目标Yaw角度，0度表示走绝对直线
 
 // 积分分离角度阈值（度）：超过此角度停止速度环积分
 #define INTEGRAL_SEPARATION_ANGLE 20.0f
 
-// 转速输出限幅 (例如最大1500 RPM，根据电机实际能力修改)
-#define TARGET_SPEED_MAX 1500 
-#define TARGET_SPEED_MIN -1500
+// 转速输出限幅 (例如最大100 rad/s，根据电机实际能力修改)
+#define TARGET_SPEED_MAX 100 
+#define TARGET_SPEED_MIN -100
 
-// 转向差速限幅 (如最大产生±500 RPM的差速)
-#define TURN_SPEED_MAX 500
-#define TURN_SPEED_MIN -500
+// 转向差速限幅 (如最大产生±30 rad/s的差速)
+#define TURN_SPEED_MAX 30
+#define TURN_SPEED_MIN -30
 
 /**
  * @brief 速度环PI控制 (计算角度偏差补偿)
