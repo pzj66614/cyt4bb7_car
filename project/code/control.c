@@ -10,29 +10,29 @@
 // ----- 直立环(角度环)PID参数 -----
 // 经过调整，直立环现在输出期望轮子转速 (RPM)
 // 原为rad/s参数, 现乘以 9.549296 使其匹配 RPM 个量级输出
-float Upright_Kp = -18.0f; // 滑动是因为软了兜不住，适当加大Kp (从-21 加回 -26)
-float Upright_Kd = -20.0f; // Kd保持刚降下来的参数不产生抽搐
-float Target_Angle = -6.5f; // 机械零度(需根据实际重力校准后调整)
+float Upright_Kp = -70.0f; // 滑动是因为软了兜不住，适当加大Kp (从-21 加回 -26)
+float Upright_Kd = -120.0f; // Kd保持刚降下来的参数不产生抽搐
+float Target_Angle = -5.5f; // 机械零度(需根据实际重力校准后调整)
 
 // ----- 速度环PID参数 -----
 // 速度环为PI控制，输出用于微调期望角度（即产生俯仰角以加减速）
 // 原因为输入误差变成了RPM(放大9.549倍), 而输出仍需要是相同的补偿角度, 故参数需要除以 9.549296 (即乘以 0.10472)
-float Velocity_Kp = 0.07f;   // 从0.08往回调一点，防止速度环太猛引起整体低频震荡
+float Velocity_Kp = 0.075f;   // 从0.08往回调一点，防止速度环太猛引起整体低频震荡
 float Velocity_Ki = 0.00035f; // 积分类同
 float Target_Speed = 0.0f; // 期望速度(RPM级别)，静止为0
 
 // ----- 转向环(Yaw角)PD参数 -----
 // 转向环用于控制小车走直线或实现指定角度转向
 // 原为rad/s参数, 现乘以 9.549296 使其匹配 RPM 差速输出
-float Turn_Kp = 0.0f;  // 0.1 * 9.549
-float Turn_Kd = 0.00f;  // 0.001 * 9.549
+float Turn_Kp = 1.0f;  // 0.1 * 9.549
+float Turn_Kd = 0.1f;  // 0.001 * 9.549
 float Target_Yaw_Angle = 0.0f; // 目标Yaw角度，0度表示走绝对直线
 
 // 状态机：区分角度锁定控制和角速度控制
 int Use_Angle_Control = 1;     // 1: 角度控制(限定角度走直), 0: 角速度控制(转圈或角速度走直线)
 float Target_Turn_Rate = 0.0f; // 当前的平滑目标角速度
-float Desired_Turn_Rate = 0.0f; // 最终期望达到的目标角速度
-float Turn_Rate_Step = 2.0f;   // 每次控制周期角速度最大变化步长 (根据控制频率调节)
+float Desired_Turn_Rate = 10.0f; // 最终期望达到的目标角速度
+float Turn_Rate_Step = 5.0f;   // 每次控制周期角速度最大变化步长 (根据控制频率调节)
 float Turn_Rate_Kp = 2.5f;     // 角速度控制比例系数
 
 // 自动转圈退出相关变量

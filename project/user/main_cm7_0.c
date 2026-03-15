@@ -152,6 +152,18 @@ void control_task(void)
     
     // 如果控制使能，计算并输出速度
     if(g_control_enable) {
+        // ---【调试】：启动后约10s自动触发一次转圈测试---
+        static int time_5ms_tick = 0;
+        static int test_spin_done = 0;
+        if (!test_spin_done) {
+             time_5ms_tick++;
+             if (time_5ms_tick >= 2000) { // 2000 * 5ms = 10000ms = 10s
+                 Control_Set_Spin(1, 15.0f, yaw_angle); // 触发转圈，角速度150，转2圈自动停
+                 test_spin_done = 1; // 标记只执行一次
+             }
+        }
+        // ------------------------------------------------
+
         // 1. 直立环 + 速度环 -> 决定基础共模转速 (单位为 RPM)
         int target_speed = Control_Get_Total_Speed(pitch_angle, pitch_gyro, g_motor_speed);
         g_target_speed = target_speed;
