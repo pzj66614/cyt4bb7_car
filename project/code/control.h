@@ -18,6 +18,18 @@ extern float Turn_Kp;           // 转向比例常数
 extern float Turn_Kd;           // 转向微分常数
 extern float Target_Yaw_Angle;  // 目标走直线的Yaw角度基准
 
+extern int Use_Angle_Control;   // 状态机: 1: 角度控制(走绝对直线), 0: 角速度控制(转圈)
+extern float Target_Turn_Rate;  // 当前的平滑目标角速度
+extern float Desired_Turn_Rate; // 期望的最终目标角速度
+extern float Turn_Rate_Step;    // 角速度渐变步长
+extern float Turn_Rate_Kp;      // 角速度控制比例系数
+
+// 自动转圈退出相关变量 (支持状态查询)
+extern int Spin_Auto_Stop;           // 是否开启转完自动停
+extern float Target_Spin_Angle;      // 期望转动的总角度 (度)
+extern float Accumulated_Spin_Angle; // 当前已转动的积累角度 (度)
+extern int Is_Stopping;              // 是否正在刹车标志
+
 // PID及电机PWM限幅
 #define PWM_MAX  10000
 #define PWM_MIN -10000
@@ -57,5 +69,13 @@ int Control_Get_Total_Speed(float current_angle, float current_gyro, float curre
  * @return 转向环计算得到的差速目标转速
  */
 int Control_Get_Turn_Speed(float current_yaw, float yaw_gyro);
+
+/**
+ * @brief 原地转圈操作函数
+ * @param enable     是否开启角速度转圈 (1:转圈, 0:关闭转圈并锁死当前角度)
+ * @param turn_rate  期望的转圈角速度 (正数/负数决定方向)
+ * @param current_yaw 当前角度 (关闭转圈时用于锁死新方向，防止回弹)
+ */
+void Control_Set_Spin(int enable, float turn_rate, float current_yaw);
 
 #endif // __CONTROL_H__

@@ -28,6 +28,20 @@ float Turn_Kp = 0.0f;  // 0.1 * 9.549
 float Turn_Kd = 0.00f;  // 0.001 * 9.549
 float Target_Yaw_Angle = 0.0f; // 目标Yaw角度，0度表示走绝对直线
 
+// 状态机：区分角度锁定控制和角速度控制
+int Use_Angle_Control = 1;     // 1: 角度控制(限定角度走直), 0: 角速度控制(转圈或角速度走直线)
+float Target_Turn_Rate = 0.0f; // 当前的平滑目标角速度
+float Desired_Turn_Rate = 0.0f; // 最终期望达到的目标角速度
+float Turn_Rate_Step = 2.0f;   // 每次控制周期角速度最大变化步长 (根据控制频率调节)
+float Turn_Rate_Kp = 2.5f;     // 角速度控制比例系数
+
+// 自动转圈退出相关变量
+int Spin_Auto_Stop = 0;           // 是否开启转完自动停
+float Target_Spin_Angle = 0.0f;   // 期望转动的总角度 (度)
+float Accumulated_Spin_Angle = 0.0f; // 当前已转动的积累角度 (度)
+float Last_Yaw_Angle = 0.0f;      // 前一次的Yaw角，用于计算增量
+int Is_Stopping = 0;              // 是否正在刹车标志
+
 // 积分分离角度阈值（度）：超过此角度停止速度环积分
 #define INTEGRAL_SEPARATION_ANGLE 20.0f
 
@@ -130,16 +144,92 @@ int Control_Get_Total_Speed(float current_angle, float current_gyro, float curre
 }
 
 /**
- * @brief 转向环PD控制 (计算两轮差速)
- * @param current_yaw 当前Yaw角度(由姿态解算影响走直线的倾斜或偏航)
+ * @brief 原地转圈操作函数
+ * @param enable     是否开启角速度转圈 (1:转圈, 0:关闭转圈并锁死当前角度)
+ * @param turn_rate  期望的转圈角速度 (正数/负数决定方向)
+ * @param current_yaw 当前角度 (关闭转圈时用于锁死新方向，防止回弹)
+ */
+void Control_Set_Spin(int enable, float turn_rate, float current_yaw) {
+    if (enable) {
+        Use_Angle_Control = 0;
+        Desired_Turn_Rate = turn_rate; // 设置为期望角速度，让其平滑过渡
+        Target_Speed = 0.0f; // 清零前进速度，保证原地打转
+        
+        // 开启以 720 度(两圈)为目标的自动累计
+        Spin_Auto_Stop = 1;
+        Target_Spin_Angle = 720.0f; // 定死两圈
+        Accumulated_Spin_Angle = 0.0f;
+        Last_Yaw_Angle = current_yaw;
+        Is_Stopping = 0;
+    } else {
+        Use_Angle_Control = 1;
+        Desired_Turn_Rate = 0.0f;
+        Target_Turn_Rate = 0.0f; // 瞬间清零
+        Target_Yaw_Angle = current_yaw; // 更新为当前角度
+        Spin_Auto_Stop = 0;
+        Is_Stopping = 0;
+    }
+}
+
+/**
+ * @brief 转向环控制 (支持角度锁定与角速度控制)
+ * @param current_yaw 当前Yaw角度
  * @param yaw_gyro    当前Yaw轴角速度
  * @return 转向环计算得到的差速目标转速 (加在左轮、减在右轮)
  */
 int Control_Get_Turn_Speed(float current_yaw, float yaw_gyro) {
-    float yaw_err = current_yaw - Target_Yaw_Angle;
+    float turn_speed_f = 0.0f;
     
-    // 转向PD计算公式： 转速差 = Kp * 误差 + Kd * 角速度微调
-    float turn_speed_f = (Turn_Kp * yaw_err) + (Turn_Kd * yaw_gyro);
+    if (Use_Angle_Control) {
+        // --- 模式：角度控制 (走绝对直线或限定角度) ---
+        float yaw_err = current_yaw - Target_Yaw_Angle;
+        turn_speed_f = (Turn_Kp * yaw_err) + (Turn_Kd * yaw_gyro);
+    } else {
+        // --- 模式：角速度控制 (原地转圈或角速度走直线) ---
+        
+        // 1. 自动计算转圈累计角度 (处理超限制后引发刹车)
+        if (Spin_Auto_Stop) {
+            float delta_yaw = current_yaw - Last_Yaw_Angle;
+            // 处理偏航角跨越 ±180 或 0~360 导致的差值跳变
+            if (delta_yaw > 180.0f) delta_yaw -= 360.0f;
+            else if (delta_yaw < -180.0f) delta_yaw += 360.0f;
+            
+            Accumulated_Spin_Angle += fabsf(delta_yaw);
+            Last_Yaw_Angle = current_yaw;
+            
+            // 如果累计转角超过了目标(如720度)，则开始平滑刹车
+            if (Accumulated_Spin_Angle >= Target_Spin_Angle && !Is_Stopping) {
+                Desired_Turn_Rate = 0.0f; // 触发刹车，目标角速度置零
+                Is_Stopping = 1;
+            }
+        }
+
+        // 2. 角速度目标值渐变平滑过渡 (斜坡函数缓启动/缓停止)
+        if (Target_Turn_Rate < Desired_Turn_Rate) {
+            Target_Turn_Rate += Turn_Rate_Step;
+            if (Target_Turn_Rate > Desired_Turn_Rate) Target_Turn_Rate = Desired_Turn_Rate;
+        } else if (Target_Turn_Rate > Desired_Turn_Rate) {
+            Target_Turn_Rate -= Turn_Rate_Step;
+            if (Target_Turn_Rate < Desired_Turn_Rate) Target_Turn_Rate = Desired_Turn_Rate;
+        }
+        
+        // 3. 缓降结束后，自动切换回限定角度模式锁死
+        if (Is_Stopping && fabsf(Target_Turn_Rate) < 0.1f && fabsf(Desired_Turn_Rate) < 0.1f) {
+            Use_Angle_Control = 1;
+            Spin_Auto_Stop = 0;
+            Is_Stopping = 0;
+            Target_Yaw_Angle = current_yaw; // 将最后停下时的角度锁死，防止回弹
+        }
+
+        // 4. 最终误差进入比例控制器
+        float rate_err = Target_Turn_Rate - yaw_gyro;
+        turn_speed_f = Turn_Rate_Kp * rate_err;
+        
+        // 动态更新 Target_Yaw_Angle，即使中途意外强行切回角度控制，也不会疯转回弹
+        if (!Is_Stopping && !Use_Angle_Control) {
+            Target_Yaw_Angle = current_yaw; 
+        }
+    }
     
     int turn_speed = (int)turn_speed_f;
     
