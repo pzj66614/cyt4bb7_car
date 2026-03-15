@@ -60,7 +60,7 @@
 // **************************** 全局变量 ****************************
 
 // 控制标志（由中断设置，主循环查询）
-volatile uint8_t g_control_flag = 0;        // 控制任务触发标志
+volatile int g_control_flag = 0;        // 控制任务触发标志
 
 // 编码器数据（从CYT2BL3接收）
 volatile float g_motor_speed = 0;            // 平均电机速度
@@ -98,12 +98,11 @@ void system_init(void)
 
 /**
  * @brief 计算速度平均值（用于PID控制）
- * 从CYT2BL3接收的左右电机速度计算平均值
+ * 从CYT2BL3接收的左右电机速度计算平均值 (以 RPM 为单位)
  */
 float calculate_average_speed(void)
 {
-    // 从双机通信结构体获取左右电机速度
-    // motor_value.receive_left_speed_data 和 receive_right_speed_data 在中断中自动更新
+    // 直接使用原始的 RPM
     return (float)(motor_value.receive_left_speed_data + motor_value.receive_right_speed_data) / 2.0f;
 }
 
@@ -153,16 +152,15 @@ void control_task(void)
     
     // 如果控制使能，计算并输出速度
     if(g_control_enable) {
-        // 1. 直立环 + 速度环 -> 决定基础共模转速
+        // 1. 直立环 + 速度环 -> 决定基础共模转速 (单位为 RPM)
         int target_speed = Control_Get_Total_Speed(pitch_angle, pitch_gyro, g_motor_speed);
         g_target_speed = target_speed;
         
-        // 2. 转向环(Yaw) -> 决定差速
+        // 2. 转向环(Yaw) -> 决定差速 (单位为 RPM)
         int turn_speed = Control_Get_Turn_Speed(yaw_angle, yaw_gyro);
         g_turn_speed = turn_speed;
         
-        // 3. 差速叠加到底盘左右轮上
-        // 注意加减方向：需根据实际车体转向方向进行测试，如果反向则调换 + / -
+        // 3. 差速叠加到底盘左右轮上 (这里算出来的是 RPM)
         int left_target = target_speed - turn_speed;
         int right_target = target_speed + turn_speed;
 

@@ -40,7 +40,7 @@ void uart_control_callback(void)
 
                     if(motor_value.receive_data_buffer[1] == 0x02)                          // 判断是否正确接收到 速度输出 功能字
                     {
-                        // 修正：使用 int16 解析有符号速度数据
+                        // 修正：使用 int16 解析有符号速度数据 (读取到的为 RPM)
                         motor_value.receive_left_speed_data  = (int16_t)(((uint16_t)motor_value.receive_data_buffer[2] << 8) | (uint16_t)motor_value.receive_data_buffer[3]);
 
                         motor_value.receive_right_speed_data = (int16_t)(((uint16_t)motor_value.receive_data_buffer[4] << 8) | (uint16_t)motor_value.receive_data_buffer[5]);

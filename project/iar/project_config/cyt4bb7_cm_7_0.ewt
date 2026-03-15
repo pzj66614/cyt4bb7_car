@@ -2459,6 +2459,12 @@
         </file>
     </group>
     <file>
+        <name>$PROJ_DIR$\..\..\code\app_init.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\app_init.h</name>
+    </file>
+    <file>
         <name>$PROJ_DIR$\..\..\code\control.c</name>
     </file>
     <file>

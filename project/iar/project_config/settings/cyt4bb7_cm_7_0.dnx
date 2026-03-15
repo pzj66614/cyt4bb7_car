@@ -38,8 +38,8 @@
     <SWOManager>
         <SamplingDivider>8192</SamplingDivider>
         <OverrideClock>0</OverrideClock>
-        <CpuClock>1431585108</CpuClock>
-        <SwoClock>1430466131</SwoClock>
+        <CpuClock>172052037</CpuClock>
+        <SwoClock>1684104530</SwoClock>
         <DataLogMode>0</DataLogMode>
         <ItmPortsEnabled>63</ItmPortsEnabled>
         <ItmTermIOPorts>1</ItmTermIOPorts>
@@ -49,7 +49,7 @@
         <PowerConnectPC>1</PowerConnectPC>
     </SWOManager>
     <DebugChecksum>
-        <Checksum>748325596</Checksum>
+        <Checksum>2716981555</Checksum>
     </DebugChecksum>
     <Disassembly>
         <MixedMode>1</MixedMode>

@@ -8,33 +8,36 @@
 #include <math.h>
 
 // ----- 直立环(角度环)PID参数 -----
-// 经过调整，直立环现在输出期望轮子转速 (rad/s)
-float Upright_Kp = -1.50f; // 比例常数需重新整定以适应速度输出(100rad/s量级)
-float Upright_Kd = 0.01f;  // 微分常数需重新整定以适应速度输出(100rad/s量级)
-float Target_Angle = -1.2f; // 机械零度(需根据实际重力校准后调整)
+// 经过调整，直立环现在输出期望轮子转速 (RPM)
+// 原为rad/s参数, 现乘以 9.549296 使其匹配 RPM 个量级输出
+float Upright_Kp = -18.0f; // 滑动是因为软了兜不住，适当加大Kp (从-21 加回 -26)
+float Upright_Kd = -20.0f; // Kd保持刚降下来的参数不产生抽搐
+float Target_Angle = -6.5f; // 机械零度(需根据实际重力校准后调整)
 
 // ----- 速度环PID参数 -----
 // 速度环为PI控制，输出用于微调期望角度（即产生俯仰角以加减速）
-float Velocity_Kp = 0.0f;   // 比例常数需重新整定
-float Velocity_Ki = 0.00f;  // 积分常数需重新整定
-float Target_Speed = 0.0f; // 期望速度通常为0(静止不动)
+// 原因为输入误差变成了RPM(放大9.549倍), 而输出仍需要是相同的补偿角度, 故参数需要除以 9.549296 (即乘以 0.10472)
+float Velocity_Kp = 0.07f;   // 从0.08往回调一点，防止速度环太猛引起整体低频震荡
+float Velocity_Ki = 0.00035f; // 积分类同
+float Target_Speed = 0.0f; // 期望速度(RPM级别)，静止为0
 
 // ----- 转向环(Yaw角)PD参数 -----
 // 转向环用于控制小车走直线或实现指定角度转向
-float Turn_Kp =0.03f;      // 转向比例常数，根据响应速度整定
-float Turn_Kd = 0.005f;      // 转向微分常数，用于抑制振荡
+// 原为rad/s参数, 现乘以 9.549296 使其匹配 RPM 差速输出
+float Turn_Kp = 0.0f;  // 0.1 * 9.549
+float Turn_Kd = 0.00f;  // 0.001 * 9.549
 float Target_Yaw_Angle = 0.0f; // 目标Yaw角度，0度表示走绝对直线
 
 // 积分分离角度阈值（度）：超过此角度停止速度环积分
 #define INTEGRAL_SEPARATION_ANGLE 20.0f
 
-// 转速输出限幅 (例如最大100 rad/s，根据电机实际能力修改)
-#define TARGET_SPEED_MAX 100 
-#define TARGET_SPEED_MIN -100
+// 转速输出限幅 (例如最大1000 RPM，根据电机实际能力修改)
+#define TARGET_SPEED_MAX 1000 
+#define TARGET_SPEED_MIN -1000
 
-// 转向差速限幅 (如最大产生±30 rad/s的差速)
-#define TURN_SPEED_MAX 30
-#define TURN_SPEED_MIN -30
+// 转向差速限幅 (如最大产生±300 RPM的差速)
+#define TURN_SPEED_MAX 300
+#define TURN_SPEED_MIN -300
 
 /**
  * @brief 速度环PI控制 (计算角度偏差补偿)
@@ -49,20 +52,27 @@ float Control_Velocity_PI(float current_speed, float current_angle) {
     // 计算速度偏差
     float speed_err = Target_Speed - current_speed;
     
-    // 速度偏差滤波
+    // 速度偏差滤波 (对高频噪声做缓解)
     speed_err = speed_err * 0.7f + velocity_err_last * 0.3f;
     velocity_err_last = speed_err;
     
-    // 积分分离
-    if (fabsf(current_angle) < INTEGRAL_SEPARATION_ANGLE) {
-        speed_integral += speed_err;
+    // *** 关键修复：当误差很小接近 0 时，清除积分，或者设置死区，防止残余积分死顶 ***
+    // 如果小车本来应该停下，却怎么也停不彻底，往往是因为 speed_integral 积累了一些垃圾值退不回来
+    // 这里加一个抗积分饱和与积分清零的智能死区
+    if (fabsf(speed_err) < 2.0f && fabsf(Target_Speed) < 0.1f) {
+        speed_integral *= 0.8f; // 如果目标是静止，且当前速度已经很慢了，让积分快速衰减
     } else {
-        speed_integral = 0.0f;
+        // 积分分离 (防大角度失控)
+        if (fabsf(current_angle) < INTEGRAL_SEPARATION_ANGLE) {
+            speed_integral += speed_err;
+        } else {
+            speed_integral = 0.0f;
+        }
     }
     
-    // 积分限幅 (防止角度补偿过大，如最大不超过5度)
-    if(speed_integral > 5000.0f) speed_integral = 5000.0f;
-    if(speed_integral < -5000.0f) speed_integral = -5000.0f;
+    // 原来的积分限幅对于 RPM 来说 5000 太容易满了，扩大抗积分饱和的容量
+    if(speed_integral > 50000.0f) speed_integral = 50000.0f;
+    if(speed_integral < -50000.0f) speed_integral = -50000.0f;
     
     // 速度环输出：补偿到目标直立角度上的值
     float angle_compensation = (Velocity_Kp * speed_err) + (Velocity_Ki * speed_integral);
@@ -107,7 +117,7 @@ int Control_Get_Total_Speed(float current_angle, float current_gyro, float curre
     // 1. 获取速度环输出 (目标角度微调基准)
     float angle_compensation = Control_Velocity_PI(current_speed, current_angle);
     
-    // 2. 将角度补偿传递给直立环，直接输出目标转速
+    // 2. 将角度补偿传递给直立环，直接输出目标转速(用于产生恢复力/角速度)
     float target_motor_speed_f = Control_Upright_PD(current_angle, current_gyro, angle_compensation);
     
     int target_motor_speed = (int)target_motor_speed_f;

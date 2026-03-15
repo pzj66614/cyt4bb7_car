@@ -22,9 +22,13 @@ typedef struct
 
     uint8 sum_check_data;                       // 校验位
 
-    int16 receive_left_speed_data;              // 接收到的左侧电机速度数据
+    int16 receive_left_speed_data;              // 接收到的左侧电机速度数据 (RPM)
 
-    int16 receive_right_speed_data;             // 接收到的右侧电机速度数据
+    int16 receive_right_speed_data;             // 接收到的右侧电机速度数据 (RPM)
+    
+    float receive_left_speed_rads;              // 转换为 rad/s 后的左侧速度
+    
+    float receive_right_speed_rads;             // 转换为 rad/s 后的右侧速度
 
 }small_device_value_struct;
 
