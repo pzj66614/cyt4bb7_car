@@ -34,197 +34,190 @@
 * 2026-3-8       modified           重构轮腿小车PID直立控制，双机通信架构
 ********************************************************************************************************************/
 
+/*********************************************************************************************************************
+* 文件名称          main_cm7_0
+* 功能说明          科目一“绕桩”主函数（集成 project_one_vision）
+********************************************************************************************************************/
+
+/******************************************************************************
+ * main_cm7_0.c
+ *
+ * 核心架构变化：
+ * 控制闭环 100% 在 PIT 中断里执行，5ms 一次
+ * 视觉处理在主循环里执行，不管多慢都不影响平衡
+ *****************************************************************************/
+
 #include "zf_common_headfile.h"
 #include "control.h"
 #include "servo.h"
 #include "imu_fusion.h"
 #include "zf_device_imu660rb.h"
-#include "small_drive_uart_control.h"  // 双机通信驱动
-#include "app_init.h"
+#include "zf_device_mt9v03x.h"
+#include "zf_device_ips114.h"
+#include "small_drive_uart_control.h"
+#include "project_one_vision.h"
 
-// **************************** 宏定义 ****************************
+#define CONTROL_PERIOD_MS   5
+#define VISION_YAW_LIMIT    8.0f
+#define VISION_YAW_ALPHA    0.15f
+#define PRINT_DIV           500
+#define DISPLAY_DIV         30
 
-// 控制周期定义 5ms = 200Hz
-#define CONTROL_PERIOD_MS       5
-#define CONTROL_FREQ_HZ         200
+extern float Target_Yaw_Angle;
+extern float Target_Speed;
 
-// 调试打印周期 100ms
-#define PRINT_PERIOD_MS         100
+volatile uint8_t g_control_enable = 0;
 
-// 双机通信使用的UART (定义在 small_drive_uart_control.h 中)
-// SMALL_DRIVER_UART = UART_4
-// SMALL_DRIVER_BAUDRATE = 460800
-// SMALL_DRIVER_TX = UART4_RX_P14_0
-// SMALL_DRIVER_RX = UART4_TX_P14_1
+volatile float g_pitch_angle  = 0.0f;
+volatile float g_pitch_gyro   = 0.0f;
+volatile float g_yaw_angle    = 0.0f;
+volatile float g_yaw_gyro     = 0.0f;
+volatile int   g_target_speed = 0;
+volatile int   g_turn_speed   = 0;
 
-// **************************** 全局变量 ****************************
+static float g_vision_enter_yaw     = 0.0f;
+static float g_vision_yaw_filtered  = 0.0f;
 
-// 控制标志（由中断设置，主循环查询）
-volatile int g_control_flag = 0;        // 控制任务触发标志
-
-// 编码器数据（从CYT2BL3接收）
-volatile float g_motor_speed = 0;            // 平均电机速度
-
-// 控制状态
-volatile int g_control_enable = 0;           // 控制使能标志
-
-// 调试数据
-volatile float g_pitch_angle = 0;            // 俯仰角
-volatile float g_pitch_gyro = 0;             // 俯仰角速度
-volatile float g_yaw_angle = 0;              // Yaw角(影响偏航)
-volatile float g_yaw_gyro = 0;               // Yaw角速度
-volatile int g_target_speed = 0;             // 目标主转速（前进后退）
-volatile int g_turn_speed = 0;               // 目标转向差速（左右偏差）
-
-// **************************** 函数声明 ****************************
-
-void system_init(void);
-void control_task(void);                      // 主循环控制任务
-void control_isr_handler(void);               // 中断处理函数（仅设置标志）
-
-// **************************** 函数实现 ****************************
-
-/**
- * @brief 系统初始化
- */
-void system_init(void)
+void control_isr_handler(void)
 {
-    // 禁用全局中断进行初始化
-    interrupt_global_disable();
-    
-    // 使能全局中断
-    interrupt_global_enable(0);
-}
-
-/**
- * @brief 计算速度平均值（用于PID控制）
- * 从CYT2BL3接收的左右电机速度计算平均值 (以 RPM 为单位)
- */
-float calculate_average_speed(void)
-{
-    // 直接使用原始的 RPM
-    return (float)(motor_value.receive_left_speed_data + motor_value.receive_right_speed_data) / 2.0f;
-}
-
-// **************************** 控制任务 ****************************
-
-/**
- * @brief 控制任务 - 在主循环中执行
- * 执行周期由PIT定时器控制（5ms），通过 g_control_flag 标志触发
- * 
- * 数据流向：
- * 1. 从IMU读取姿态 → PID计算 → 得到目标转速 g_target_speed
- * 2. 通过相应的发送函数(后续需要根据需求替换)发送目标转速给 CYT2BL3
- * 3. CYT2BL3 执行FOC驱动电机，并可能通过串口返回实际转速
- * 4. 实际转速在中断中存入 motor_value.receive_left/right_speed_data
- */
-void control_task(void)
-{
-    // 检查控制标志，未设置则直接返回
-    if(!g_control_flag) return;
-    
-    // 清除标志（必须在开头清除，防止遗漏下一次触发）
-    g_control_flag = 0;
-    
-    // 采集IMU数据（加速度计和陀螺仪）
     imu660rb_get_acc();
     imu660rb_get_gyro();
-    
-    // 卡尔曼滤波更新姿态，dt = 5ms = 0.005s
     imu_fusion_update(NULL, 0.005f);
-    
-    // 获取滤波后的姿态角和角速度
-    float pitch_angle = imu_get_pitch_angle();
-    float pitch_gyro = imu_get_pitch_gyro();
-    
-    // 获取Yaw角信息用于转向差速控制
-    float yaw_angle = imu_get_yaw_angle();
-    float yaw_gyro = imu_get_yaw_gyro();
-    
-    // 获取电机速度（从CYT2BL3接收的实际转速）
-    g_motor_speed = calculate_average_speed();
-    
-    // 更新全局调试变量
-    g_pitch_angle = pitch_angle;
-    g_pitch_gyro = pitch_gyro;
-    g_yaw_angle = yaw_angle;
-    g_yaw_gyro = yaw_gyro;
-    
-    // 如果控制使能，计算并输出速度
-    if(g_control_enable) {
-        // ---【调试】：启动后约10s自动触发一次转圈测试---
-        static int time_5ms_tick = 0;
-        static int test_spin_done = 0;
-        if (!test_spin_done) {
-             time_5ms_tick++;
-             if (time_5ms_tick >= 2000) { // 2000 * 5ms = 10000ms = 10s
-                 Control_Set_Spin(1, 15.0f, yaw_angle); // 触发转圈，角速度150，转2圈自动停
-                 test_spin_done = 1; // 标记只执行一次
-             }
-        }
-        // ------------------------------------------------
 
-        // 1. 直立环 + 速度环 -> 决定基础共模转速 (单位为 RPM)
-        int target_speed = Control_Get_Total_Speed(pitch_angle, pitch_gyro, g_motor_speed);
+    float pitch_angle = imu_get_pitch_angle();
+    float pitch_gyro  = imu_get_pitch_gyro();
+    float yaw_angle   = imu_get_yaw_angle();
+    float yaw_gyro    = imu_get_yaw_gyro();
+
+    float motor_speed = (float)(motor_value.receive_left_speed_data +
+                                motor_value.receive_right_speed_data) / 2.0f;
+
+    g_pitch_angle = pitch_angle;
+    g_pitch_gyro  = pitch_gyro;
+    g_yaw_angle   = yaw_angle;
+    g_yaw_gyro    = yaw_gyro;
+
+    if(g_control_enable)
+    {
+        int target_speed = Control_Get_Total_Speed(pitch_angle, pitch_gyro, motor_speed);
+        int turn_speed   = Control_Get_Turn_Speed(yaw_angle, yaw_gyro);
+
         g_target_speed = target_speed;
-        
-        // 2. 转向环(Yaw) -> 决定差速 (单位为 RPM)
-        int turn_speed = Control_Get_Turn_Speed(yaw_angle, yaw_gyro);
-        g_turn_speed = turn_speed;
-        
-        // 3. 差速叠加到底盘左右轮上 (这里算出来的是 RPM)
-        int left_target = target_speed - turn_speed;
+        g_turn_speed   = turn_speed;
+
+        int left_target  = target_speed - turn_speed;
         int right_target = target_speed + turn_speed;
 
-        // 发送带差速的目标转速给CYT2BL3（双机通信）
         small_driver_set_speed((int16_t)left_target, (int16_t)right_target);
-    } else {
-        // 控制未使能，停止电机
-        g_target_speed = 0;
-        g_turn_speed = 0;
-        small_driver_set_speed(0, 0);
     }
 }
 
-// **************************** 中断处理 ****************************
-
-/**
- * @brief 控制中断处理函数
- * 注意：此函数在 cm7_0_isr.c 中的 pit0_ch0_isr() 中被调用
- * 仅设置标志，所有实际工作在 control_task() 中完成
- */
-void control_isr_handler(void)
-{
-    // 仅设置控制标志，让主循环执行控制任务
-    // 避免在中断中执行耗时操作，防止中断阻塞
-    g_control_flag = 1;
-}
-
-// **************************** 主函数 ****************************
-
 int main(void)
 {
-    // 系统初始化
-    car_system_init();
-    
-    // 主循环
-    while(true)
+    uint32_t print_cnt   = 0;
+    uint32_t display_cnt = 0;
+
+    clock_init(SYSTEM_CLOCK_250M);
+    debug_init();
+
+    printf("\r\n=== Balance(PIT_CH1) + Vision + Display ===\r\n");
+
+    interrupt_global_disable();
+    interrupt_global_enable(0);
+
+    servo_init(servo_motor_duty_1, servo_motor_duty_2,
+               servo_motor_duty_3, servo_motor_duty_4);
+
+    if(imu660rb_init() != 0) while(1);
+    system_delay_ms(500);
+    imu_zero_bias_init(200);
+    imu_fusion_init();
+    printf("IMU ready\r\n");
+
+    small_driver_uart_init();
+    printf("Motor UART ready\r\n");
+
+    if(mt9v03x_init() != 0) while(1);
+    printf("Camera ready\r\n");
+
+    ips114_init();
+    printf("IPS114 ready\r\n");
+
+    project_one_vision_init();
+    project_one_vision_enable();
+    printf("Vision ready\r\n");
+
+    Target_Speed     = 0.0f;
+    Target_Yaw_Angle = 0.0f;
+    g_vision_enter_yaw    = imu_get_yaw_angle();
+    g_vision_yaw_filtered = 0.0f;
+    Target_Yaw_Angle      = g_vision_enter_yaw;
+
+    // 控制用 PIT_CH1，避开摄像头的 CH0
+    pit_ms_init(PIT_CH1, CONTROL_PERIOD_MS);
+
+    g_control_enable = 1;
+    printf("Control on PIT_CH1\r\n");
+
+    while(1)
     {
-        // 执行控制任务（由中断标志触发，5ms周期）
-        // 该任务会：
-        // 1. 读取IMU数据进行姿态解算
-        // 2. 获取CYT2BL3返回的电机速度
-        // 3. PID计算得到目标转速
-        // 4. 将差速目标转速发送至CYT2BL3
-        control_task();
-        
-        // 每100ms打印一次调试信息
-        car_debug_print();
-        
-        // 喂狗（如果使能了看门狗）
-        // system_watchdog_feed();
-        
-        // 主循环延时（不能太长，确保能及时响应控制标志）
+        // ======== 视觉处理（低优先级）========
+        if(mt9v03x_finish_flag)
+        {
+            mt9v03x_finish_flag = 0;
+            project_one_vision_run(mt9v03x_image);
+
+            float raw_yaw = g_project_one_yaw;
+            if(raw_yaw > VISION_YAW_LIMIT)
+            {
+                raw_yaw = VISION_YAW_LIMIT;
+            }
+            if(raw_yaw < -VISION_YAW_LIMIT)
+            {
+                raw_yaw = -VISION_YAW_LIMIT;
+            }
+
+            g_vision_yaw_filtered = g_vision_yaw_filtered * (1.0f - VISION_YAW_ALPHA)
+                                  + raw_yaw * VISION_YAW_ALPHA;
+
+            Target_Yaw_Angle = g_vision_enter_yaw + g_vision_yaw_filtered;
+        }
+
+        // ======== 降频刷屏（不阻塞控制）========
+        display_cnt++;
+        if(display_cnt >= DISPLAY_DIV)
+        {
+            display_cnt = 0;
+
+            ips114_show_gray_image(0, 0, (const uint8 *)g_project_one_binary_image,
+                                   PROJECT_ONE_IMAGE_W, PROJECT_ONE_IMAGE_H,
+                                   135, 86, 128);
+
+            ips114_show_string(0, 88, "St:");
+            ips114_show_int(24, 88, g_project_one_state, 2);
+
+            ips114_show_string(50, 88, "Blk:");
+            ips114_show_int(82, 88, g_project_one_block_count, 2);
+
+            ips114_show_string(0, 104, "Err:");
+            ips114_show_int(30, 104, g_project_one_error, 4);
+
+            ips114_show_string(70, 104, "Yaw:");
+            ips114_show_float(102, 104, g_vision_yaw_filtered, 2, 2);
+        }
+
+        // ======== 降频打印 ========
+        print_cnt++;
+        if(print_cnt >= PRINT_DIV)
+        {
+            print_cnt = 0;
+            printf("P:%.1f Y:%.1f | TS:%d Turn:%d | Err:%d Vyaw:%.2f\r\n",
+                   g_pitch_angle, g_yaw_angle,
+                   g_target_speed, g_turn_speed,
+                   g_project_one_error,
+                   g_vision_yaw_filtered);
+        }
+
         system_delay_ms(1);
     }
 }

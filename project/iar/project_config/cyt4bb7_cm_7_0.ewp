@@ -2181,4 +2181,10 @@
     <file>
         <name>$PROJ_DIR$\..\..\code\small_drive_uart_control.h</name>
     </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\user_key.c</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\..\..\code\user_key.h</name>
+    </file>
 </project>

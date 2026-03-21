@@ -19,7 +19,7 @@ float Target_Angle = -5.5f; // 机械零度(需根据实际重力校准后调整
 // 原因为输入误差变成了RPM(放大9.549倍), 而输出仍需要是相同的补偿角度, 故参数需要除以 9.549296 (即乘以 0.10472)
 float Velocity_Kp = 0.075f;   // 从0.08往回调一点，防止速度环太猛引起整体低频震荡
 float Velocity_Ki = 0.00035f; // 积分类同
-float Target_Speed = 0.0f; // 期望速度(RPM级别)，静止为0
+float Target_Speed = 60.0f; // 期望速度(RPM级别)，静止为0
 
 // ----- 转向环(Yaw角)PD参数 -----
 // 转向环用于控制小车走直线或实现指定角度转向
@@ -182,7 +182,7 @@ int Control_Get_Turn_Speed(float current_yaw, float yaw_gyro) {
     
     if (Use_Angle_Control) {
         // --- 模式：角度控制 (走绝对直线或限定角度) ---
-        float yaw_err = current_yaw - Target_Yaw_Angle;
+    float yaw_err = current_yaw - Target_Yaw_Angle;
         turn_speed_f = (Turn_Kp * yaw_err) + (Turn_Kd * yaw_gyro);
     } else {
         // --- 模式：角速度控制 (原地转圈或角速度走直线) ---

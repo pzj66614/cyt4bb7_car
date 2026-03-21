@@ -37,13 +37,14 @@ void pit0_ch0_isr(void)
     pit_isr_flag_clear(PIT_CH0);
 
     // 调用控制中断处理函数（设置标志位，主循环执行具体任务）
-    control_isr_handler();
+    
 }
  
 
 void pit0_ch1_isr(void)
 {
     pit_isr_flag_clear(PIT_CH1);
+    control_isr_handler();
 }
 
 void pit0_ch2_isr(void)

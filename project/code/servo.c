@@ -2,9 +2,9 @@
 
 // 假设车头方向电机驱动板方向，1号舵机为车头左，2号为车头右，3号为车尾左，4号为车尾右
 // 舵机以贴纸方向为下的话，顺时针转动角度减小
-float servo_motor_duty_1 = 150.0;
+float servo_motor_duty_1 = 65.0;
 float servo_motor_duty_2 = 50.0;
-float servo_motor_duty_3 = 80.0;
+float servo_motor_duty_3 = 40.0;
 float servo_motor_duty_4 = 30.0;
 //这个占空比是目前工作角度的占空比
 void servo_set_duty(float duty1, float duty2, float duty3, float duty4)

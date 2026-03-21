@@ -1,3 +1,4 @@
+
 #include "imu_fusion.h"
 #include "zf_device_imu660rb.h"  // 提供全局变量 imu660rb_acc_x 等
 #include "zf_common_headfile.h"
@@ -188,13 +189,9 @@ void imu_fusion_update(IMU_Angles_t *out, float dt)
     // 卡尔曼滤波每轴，所有值保持度制
     kalman_update(dt, gx, roll_rel_m, &angle_roll, &bias_roll, P_roll);
     kalman_update(dt, gy, pitch_rel_m, &angle_pitch, &bias_pitch, P_pitch);
-
-    // yaw 简单积分（deg）
-    gz_filtered = 0.8f * gz_filtered + 0.2f * gz;
-    yaw += dt * gz_filtered;
-    //printf("dt=%.6f, gz=%.2f, yaw=%.2f\n", dt, gz, yaw);
-    //printf("Raw: ax=%.2f, ay=%.2f, az=%.2f\n", ax, ay, az);
-    //printf("roll_m=%.5f°,angle_roll=%.5f°\n", roll_m, angle_roll);
+    if (gz >0.14f || gz < -0.14f)
+    {gz_filtered = 0.8f * gz_filtered + 0.2f * gz;
+    yaw += dt * gz_filtered;}
     if(out)
     {
         out->roll = angle_roll + init_roll_deg;
