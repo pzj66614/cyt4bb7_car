@@ -1,20 +1,27 @@
-# 编译输出
+# IAR/CMake/Ninja 编译目录
+**/Debug*/
+**/Release*/
+**/Build*/
+**/BrowseInfo/
+
+# Ninja/CMake 中间文件
+**/.ninja_*
+**/build.ninja
+**/CMakeCache.txt
+**/CMakeFiles/
+
+# 编译产物
 *.o
+*.obj
 *.elf
 *.hex
 *.map
 *.lst
-Objects/
-Listings/
-Debug/
-Release/
-build/
-
+*.pbi
+*.xcl
+*.d
+*.dep
+*.log
+*.tmp
 
 .vscode/
-*.uvprojx
-*.uvoptx
-
-# 临时文件
-*.tmp
-*.log
